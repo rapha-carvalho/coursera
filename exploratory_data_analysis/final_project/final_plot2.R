@@ -19,5 +19,5 @@ plot2 <- with(plot2_tbl,
               )
 )
 
-dev.copy(png, file = "plot2.png", width=480, height=480)
+dev.copy(png, file = "final_plot2.png", width=480, height=480)
 dev.off()
