@@ -1,0 +1,249 @@
+---
+title: "NOAA storm database analysis"
+author: "Raphael Carvalho"
+date: "01/12/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Synopsys 
+
+This is the second peer assignment of Coursera's Reproducible Research course from Johns Hopkins Univertity. The basic goal of this assignment is to explore the NOAA Storm Database and answer some basic questions about severe wheather events.
+
+The questions that should be answered by this report are:
+
+1. Across the United States, which types of events are most harmful with respect to population health?
+2. Across the United States, which types of events have the greatest economic consequences?
+
+
+## Data processing
+
+First things first, we need to load the libraries that'll be used to perform this analysis:
+
+```{r libraries}
+library(ggplot2)
+library(purrr)
+library(dplyr)
+```
+
+The dataset is stored on `repdata-data-StormData.csv`. We'll access it through the function `read.csv`. 
+
+
+
+Here's a glimpse of the data:
+```{r data, cache=TRUE}
+data <- read.csv("repdata-data-StormData.csv", stringsAsFactors = FALSE)
+glimpse(data)
+
+```
+
+We do not need all of these columns to answers our questions. So, we'll prepare specific subsets of the data so we can work with a small set of data that its only purpose is to answer the question that we want to. 
+
+### Health harmful events
+
+Regarding the population health impacts that wheather events may cause, we'll analyse two type of damages:
+
+* Fatalities
+* Injuries
+
+#### Fatalities
+
+As there are a lot of wheather events, we'll focus on the top 10 harmful events. So, for that, we'll need to summarize our data to get the top 10 most harmful wheather events with respect to fatalities:
+```{r fatalities}
+fatalities <- data %>% select(EVTYPE, FATALITIES) %>% group_by(EVTYPE) %>%
+  summarize(total_fatalities = sum(FATALITIES)) %>% 
+  arrange(desc(total_fatalities)) %>% top_n(10)
+print(fatalities)
+```
+
+#### Injuries
+
+With respect to injuries, we'll use the same strategy as we did with the fatalities data. So, here's the summarized data for the top 10 most harmful wheather events with respect to injuries:
+```{r injuries}
+injuries <- data %>% select(EVTYPE, INJURIES) %>% group_by(EVTYPE) %>%
+  summarize(total_injuries = sum(INJURIES)) %>% 
+  arrange(desc(total_injuries)) %>% top_n(10)
+print(injuries)
+```
+
+### Economic harmful events
+
+Regarding the economic impact that wheather events may cause, we'll analyse two type of damages:
+
+* Property damage
+* Crop damage
+
+Before we prepare the specific dataframes to work with property and crop damage, we have to take into account that we do not have these values by default. We have to make some operations to get the value for those damages first. The original dataset have two fields for every economic damage. The first field (`PROPDMG` and `CROPDMG`) is a double type column that needs to be multiplied by an exponent (`PROPDMGEXP` and `CROPDMGEXP`). So the first thing that needs to be done is to write a function to make that operation possible:
+
+```{r exponent_function}
+#Exponent function
+exponentials <- function(abreviation) {
+  abreviation <- as.character(abreviation)
+  hundred <- c("h", "H")
+  thousand <- c("k", "K")
+  million <- c("m", "M")
+  billion <- c("b", "B")
+  value <- 0
+  if (abreviation %in% hundred) {
+    value <- 100
+  } else if (abreviation %in% thousand) {
+    value <- 1000
+  } else if (abreviation %in% million) {
+    value <- 1000000
+  } else if (abreviation %in% billion) {
+    value <- 1000000000
+  } else {
+    value <- 0
+  }
+  value
+}
+```
+
+#### Property damage
+
+Again, we'll follow the same strategy used to prepara the data for the health damage analysis. We'll filter our database to the top 10 economic harmful events regargind property damage:
+
+```{r property damage}
+property <- data %>% select(EVTYPE, PROPDMG, PROPDMGEXP) %>%
+    mutate(exponent = map_dbl(as.character(PROPDMGEXP), exponentials))
+property <- property %>% mutate(value = (PROPDMG * exponent)/1000000) %>% select(EVTYPE, value) %>%
+            group_by(EVTYPE) %>%
+            summarize(property_damage = sum(value)) %>% 
+            arrange(desc(property_damage)) %>% top_n(10)
+
+```
+#### Crop damage
+
+Regarding the crop damage, here's the data preparation for the top 10 economic harmful events regargind crop damage:
+
+```{r crop damage}
+crop <- data %>% select(EVTYPE, CROPDMG, CROPDMGEXP) %>%
+  mutate(exponent = map_dbl(as.character(CROPDMGEXP), exponentials))
+crop <- crop %>% mutate(value = (CROPDMG * exponent)/1000000) %>% select(EVTYPE, value) %>%
+  group_by(EVTYPE) %>%
+  summarize(crop_damage = sum(value)) %>% 
+  arrange(desc(crop_damage)) %>% top_n(10)
+
+```
+
+## Results
+
+After all the dataset preparation is done, we are ready to analyze the results.
+
+### Health related effects
+
+#### Fatalities
+
+By the graph below, we can see that **tornados** events are the most responsible for the number of fatalities in the U.S, followed by **excesive heat** and **flash flood**.
+
+```{r fatalities graph}
+fatalities_graph <- ggplot(data=fatalities, 
+                           aes(x=reorder(EVTYPE, -total_fatalities), 
+                           y=total_fatalities)) +
+                    geom_bar(stat="identity", fill="lightblue")+
+                    geom_text(aes(label=total_fatalities), vjust=-0.9, color="gray43", size=3.5)+
+                    ggtitle("Top 10 harmful events (fatalities)", 
+                            subtitle = "The most harmful type of events across the U.S with respect to population health.") +
+                    xlab("") + 
+                    ylab("Fatalities") +
+                    ylim(0, 6500) +
+                    theme_minimal() + 
+                    theme(axis.text.x = element_text(angle = 90, hjust = 0.5), 
+                          panel.border = element_blank(),
+                          panel.background = element_blank(),
+                          axis.line = element_line(colour = "black"),
+                          panel.grid.minor = element_blank(),
+                          panel.grid.major = element_blank()
+                    )
+fatalities_graph                    
+
+```
+
+
+#### Injuries
+
+Regarding the injuries damages, we can see that **tornados**  are the most responsible for the number of fatalities in the U.S, followed by **TSTM winds** and **flood**.
+
+```{r injuries graph}
+injuries_graph <- ggplot(data=injuries, 
+                         aes(x=reorder(EVTYPE, -total_injuries), 
+                         y=total_injuries)) +
+                  geom_bar(stat="identity", fill="tomato2")+
+                  geom_text(aes(label=total_injuries), vjust=-0.9, color="gray43", size=3.5)+
+                  ggtitle("Top 10 harmful events (injuries)", 
+                          subtitle = "The most harmful type of events across the U.S with respect to population health.") +
+                  xlab("") + 
+                  ylab("Injuries") +
+                  ylim(0, 100000) +
+                  theme_minimal() + 
+                  theme(axis.text.x = element_text(angle = 90, hjust = 0.5), 
+                        panel.border = element_blank(),
+                        panel.background = element_blank(),
+                        axis.line = element_line(colour = "black"),
+                        panel.grid.minor = element_blank(),
+                        panel.grid.major = element_blank()
+                   )
+injuries_graph
+```
+
+
+### Economic related effects
+
+#### Property damage
+
+
+When we talk about property damage, we can see that **flood** is the most economic harmful wheather event, followed by **hurricane/typhoon** and **tornados**.
+
+```{r property graph}
+property_graph <- ggplot(data=property, 
+                         aes(x=reorder(EVTYPE, -property_damage), 
+                         y=property_damage)) +
+                  geom_bar(stat="identity", fill="brown3")+
+                  geom_text(aes(label=round(property_damage, 2)), vjust=-0.9, color="gray43", size=3)+
+                  ggtitle("Top 10 harmful events (property damage)", 
+                          subtitle = "The most economic harmful type of events across the U.S.") +
+                  xlab("") + 
+                  ylab("Property damage (millions) ") +
+                  ylim(0, 150000) +
+                  theme_minimal() + 
+                  theme(axis.text.x = element_text(angle = 90, hjust = 0.5), 
+                        panel.border = element_blank(),
+                        panel.background = element_blank(),
+                        axis.line = element_line(colour = "black"),
+                        panel.grid.minor = element_blank(),
+                        panel.grid.major = element_blank()
+                  )
+
+property_graph                    
+
+```
+
+#### Crop damage
+
+Lastly, regarding to crop damage, we can see that **drought** is the most economic harmful wheather event, followed by **flood** and **river flood**.
+```{r crop graph}
+crop_graph <- ggplot(data=crop, 
+                         aes(x=reorder(EVTYPE, -crop_damage), 
+                             y=crop_damage)) +
+  geom_bar(stat="identity", fill="springgreen3")+
+  geom_text(aes(label=round(crop_damage, 2)), vjust=-0.9, color="gray43", size=3)+
+  ggtitle("Top 10 harmful events (crop damage)", 
+          subtitle = "The most economic harmful type of events across the U.S.") +
+  xlab("") + 
+  ylab("Crop damage (millions) ") +
+  ylim(0, 15000) +
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 0.5), 
+        panel.border = element_blank(),
+        panel.background = element_blank(),
+        axis.line = element_line(colour = "black"),
+        panel.grid.minor = element_blank(),
+        panel.grid.major = element_blank()
+  )
+
+crop_graph                    
+
+```
