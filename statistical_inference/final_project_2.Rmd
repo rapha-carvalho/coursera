@@ -1,0 +1,92 @@
+---
+title: "Final project - Part 2"
+author: "Raphael Carvalho"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this paper, we're going to analyze the ToothGrowth data in the R datasets package.
+
+1. Load the ToothGrowth data and perform some basic exploratory data analyses
+2. Provide a basic summary of the data.
+3. Use confidence intervals and/or hypothesis tests to compare tooth growth by supp and dose.
+4. State the conclusions and the assumptions needed for the conclusions.
+
+
+### Loading the packages 
+
+```{r packages, echo = TRUE, warning = FALSE, message=FALSE}
+  library(datasets)
+  library(dplyr)
+  library(ggplot2)
+```
+
+#### Getting a glimpse of the data:
+
+```{r glimpse, echo = FALSE, results='hold'}
+  glimpse(ToothGrowth)
+```
+
+```{r summary, echo = TRUE, results='hold'}
+  print(paste("Rows with NA values:", sum(!complete.cases(ToothGrowth))))
+  print(summary(ToothGrowth))
+```
+
+### Exploring the dataset
+
+```{r dispersion_dose, echo = FALSE, results='hold'}
+
+ToothGrowth$dose <- as.factor(ToothGrowth$dose)
+d1 <- ggplot(ToothGrowth, aes(x=dose, y=len,fill=dose)) +  geom_boxplot() +  ggtitle("Dispersion of tooth growth by dose") + xlab("Dose in mg") + ylab("Tooth length") + theme_minimal()
+print(d1)
+```
+
+We can see that the longer theeth received higher doses. We can also notice that the dispersion of teeth length that were given a 1 mg dose is very high compared to the teeth subimitted to other doses. Lastly, we can see an outlier tooth at the group of 0.5 mg. 
+
+```{r dispersion_delivery, echo = FALSE, results='hold'}
+
+d2 <- ggplot(ToothGrowth, aes(x=supp, y=len,fill=supp)) +  geom_boxplot() +  ggtitle("Dispersion of tooth growth by delivery method") + xlab("Delivery method") + ylab("Tooth length") + theme_minimal()
+d2
+```
+The tooth length is similar for both delivery methods. However, we can see that the dispersion for Orange Juice is much lower than the dispersion observed for Vitamin C.
+
+### Testing some hyphotesis
+
+#### Setting the variables:
+```{r variables, echo = TRUE, results='hold'}
+
+dose <- ToothGrowth$dose
+supp <- ToothGrowth$supp
+len <-  ToothGrowth$len
+
+```
+
+#### Does the delivery mode has an influence on the tooth growth?
+```{r test_delivery, echo = TRUE, results='hold'}
+t.test(len[supp == "VC"],len[supp == "OJ"], paired=FALSE)
+```
+
+**This test shows us that:**
+
+1. We shouldn't reject the null hypothesis as the p-value is bigger than .05.
+2. The confidence interval contains 0, so the test is not really significant.
+
+#### Does the dose mode has an influence on the tooth growth?
+```{r test_dose, echo = TRUE, results='hold'}
+t.test(len[dose == 0.5],len[dose == 1], paired=FALSE)
+```
+**This test shows us that:**
+
+1. We should reject the null hypothesis as the p-value is almost 0.
+2. The confidence interval does not contain 0, so the test is significant.
+
+
+### Conclusion
+
+1. The dose of Vitamin C is proved to be a factor of teeth's growth for Guinea pigs;
+2. The delivery mode does not appear to have an effect on teeth's growth.

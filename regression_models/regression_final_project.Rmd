@@ -1,0 +1,96 @@
+---
+title: "Coursera Regression Models - Motor Trend Project"
+author: "Raphael Carvalho"
+date: "10/02/2019"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Questions to be answered
+
+
+You work for Motor Trend, a magazine about the automobile industry. Looking at a data set of a collection of cars, they are interested in exploring the relationship between a set of variables and miles per gallon (MPG) (outcome). They are particularly interested in the following two questions:
+
+* “Is an automatic or manual transmission better for MPG”
+* "Quantify the MPG difference between automatic and manual transmissions"
+
+## Analysis
+
+#### Loading the packages and datasets...
+
+```{r packages, echo=FALSE, warning=FALSE, message=FALSE}
+library(ggplot2) #for plots
+library(dplyr)
+data(mtcars)
+glimpse(mtcars)
+```
+
+#### Transforming some variables into factors...
+
+```{r factors, echo=FALSE}
+mtcars$cyl  <- factor(mtcars$cyl)
+mtcars$vs   <- factor(mtcars$vs)
+mtcars$gear <- factor(mtcars$gear)
+mtcars$carb <- factor(mtcars$carb)
+mtcars$am   <- factor(mtcars$am,labels=c("Automatic","Manual"))
+```
+
+
+#### Getting the difference in MPG between Manual and Automatic...
+
+To do that, we'll first compare the mean MPG for both_
+
+```{r difference}
+aggregate(mpg~am, data = mtcars, mean)
+```
+
+As you can see, manual cars have an average MPG 7.25 higher than automatic cars. Looking at this results we can hypothetize that manual cars are more efficient when it comes down to MPG. But, to determine if this difference that we observed is statistically significant, we should run a T-test, as seen below: 
+
+```{r ttest}
+D_automatic <- mtcars[mtcars$am == "Automatic",]
+D_manual <- mtcars[mtcars$am == "Manual",]
+t.test(D_automatic$mpg, D_manual$mpg)
+```
+
+As you can see by the test results, the p-value is very close to zero, meaning that we should take the alternative hypothesis that is that the true difference in means is not equal to zero. So, to make things tangible, let's run a linear regression model to quantify this difference:
+
+```{r lm}
+model <- lm(mpg ~ am, data = mtcars)
+summary(model)
+```
+Looking on the results of the model, we can see that if our car is automatic, we should expect a MPG of 17.147 (intercept), otherwise, we should add a slope of 7.245, giving us 24.392 MPG, just as we saw when we compared the means for each group of cars. 
+
+Despite all variables been signifficant to the model, we can see that we've got a R^2 of .36. This tells us that the model only explain 36% of the variance of the data. This is not good at all. Great models explain 70% or more of the data variance. So, in order to get better results, we should add more variables that should help more of the data's variability to our model. 
+
+In order to select good variables, we need to spot those that have a strong correlation with the variable that we are trying to predict. We can do that by analysing the plot below 
+
+```{r correlation_plot}
+pairs(mpg ~ ., data = mtcars)
+```
+
+
+From this we see that cyl, disp, hp, wt have the strongest correlation with mpg. So, we build a new model using these variables and compare them to the initial model with the anova function.
+
+```{r mult_model}
+multivariable_model <- lm(mpg~am + cyl + disp + hp + wt, data = mtcars)
+anova(model, multivariable_model)
+```
+
+Analysing the results, we've got a p-value very close to zero, meaning that we can claim the model with more variables is significantly better than our first model. We double-check the residuals for non-normality and can see they are all normally distributed and homoskedastic.
+```{r residual_plot}
+par(mfrow = c(2,2))
+plot(multivariable_model)
+```
+
+At last, here's the summary of the new model:
+
+```{r summary}
+summary(multivariable_model)
+```
+
+The new model explains 86.64% of the variance and as a result, cyl, disp, hp, wt did affect the correlation between mpg and am. Thus, we can say the difference between automatic and manual transmissions is 1.81 MPG (by looking at the estimate value for variable amManual).
